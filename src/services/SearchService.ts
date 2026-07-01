@@ -13,11 +13,19 @@ export interface SearchResult {
 export class SearchService {
   private readonly viewStateParser = new ViewStateParser();
   private readonly partialResponseParser = new PartialResponseParser();
+  private lastInitialHtml: string | null = null;
 
   constructor(
     private readonly http: HttpClient,
     private readonly session: Session,
   ) {}
+
+  getInitialHtml(): string {
+    if (!this.lastInitialHtml) {
+      throw new Error('Initial page has not been fetched yet. Call search() first.');
+    }
+    return this.lastInitialHtml;
+  }
 
   async search(criteria: Record<string, string> = {}): Promise<SearchResult> {
     logger.info('Starting session');
@@ -45,6 +53,7 @@ export class SearchService {
   private async fetchInitialPage(): Promise<string> {
     const response = await this.http.get<string>('');
     this.session.setViewState(this.viewStateParser.extract(response.data));
+    this.lastInitialHtml = response.data;
     return response.data;
   }
 

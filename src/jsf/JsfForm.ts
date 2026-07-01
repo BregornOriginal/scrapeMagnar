@@ -55,6 +55,11 @@ export function findIdentifierByClass(html: string, className: string): string {
 }
 
 export function extractViewStateFromUpdates(updates: PartialUpdate[]): string | null {
-  const update = updates.find((candidate) => candidate.id.includes('ViewState'));
-  return update ? viewStateParser.extract(update.content) : null;
+  for (const update of updates) {
+    const viewState = viewStateParser.tryExtract(update.content);
+    if (viewState) {
+      return viewState;
+    }
+  }
+  return null;
 }

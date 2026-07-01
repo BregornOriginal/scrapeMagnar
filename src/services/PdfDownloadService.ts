@@ -27,7 +27,7 @@ export class PdfDownloadService {
     private readonly retryPolicy: RetryPolicy = new RetryPolicy(),
   ) {}
 
-  async downloadAll(documents: ScrapedDocument[]): Promise<DownloadAllResult> {
+  async downloadAll(documents: ScrapedDocument[], baseFormFields: URLSearchParams): Promise<DownloadAllResult> {
     const succeeded: DownloadedPdf[] = [];
     const failed: FailedDownload[] = [];
 
@@ -35,7 +35,7 @@ export class PdfDownloadService {
       logger.info(`Downloading ${document.caseNumber}`);
       try {
         const buffer = await this.retryPolicy.execute(
-          () => this.downloadOne(document),
+          () => this.downloadOne(document, baseFormFields),
           `download ${document.caseNumber}`,
         );
         succeeded.push({ document, buffer });
@@ -50,9 +50,11 @@ export class PdfDownloadService {
     return { succeeded, failed };
   }
 
-  private async downloadOne(document: ScrapedDocument): Promise<Buffer> {
-    const formData = new URLSearchParams();
-    formData.set('param_uuid', document.pdfUuid);
+  private async downloadOne(document: ScrapedDocument, baseFormFields: URLSearchParams): Promise<Buffer> {
+    const formData = new URLSearchParams(baseFormFields);
+    for (const [key, value] of Object.entries(document.downloadParams)) {
+      formData.set(key, value);
+    }
     formData.set('javax.faces.ViewState', this.session.getViewState());
 
     const response = await this.http.post<ArrayBuffer>('', formData, {

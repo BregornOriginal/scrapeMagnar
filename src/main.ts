@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { HttpClient } from './client/HttpClient';
 import { Session } from './session/Session';
 import { SearchService } from './services/SearchService';
@@ -6,6 +7,7 @@ import { PdfDownloadService, FailedDownload } from './services/PdfDownloadServic
 import { JsonStorage } from './storage/JsonStorage';
 import { PdfStorage } from './storage/PdfStorage';
 import { ScrapedDocument } from './models/Document';
+import { captureFormFields } from './jsf/JsfForm';
 import { logger } from './logger/Logger';
 
 async function main(): Promise<void> {
@@ -21,7 +23,8 @@ async function main(): Promise<void> {
   const allFailed: FailedDownload[] = [];
 
   for await (const pageDocuments of paginationService.fetchAllPages()) {
-    const { succeeded, failed } = await pdfDownloadService.downloadAll(pageDocuments);
+    const baseFormFields = captureFormFields(searchService.getInitialHtml());
+    const { succeeded, failed } = await pdfDownloadService.downloadAll(pageDocuments, baseFormFields);
 
     for (const { document, buffer } of succeeded) {
       document.filename = await pdfStorage.save(document, buffer);
@@ -30,7 +33,7 @@ async function main(): Promise<void> {
     allDocuments.push(...pageDocuments);
     allFailed.push(...failed);
 
-    await jsonStorage.save('documents.json', allDocuments);
+    await jsonStorage.save('documents.json', allDocuments.map(toPublicDocument));
   }
 
   if (allFailed.length > 0) {
@@ -45,6 +48,11 @@ async function main(): Promise<void> {
   }
 
   logger.info(`Done. ${allDocuments.length} documents processed, ${allFailed.length} downloads failed.`);
+}
+
+function toPublicDocument(document: ScrapedDocument) {
+  const { downloadParams: _downloadParams, ...publicFields } = document;
+  return publicFields;
 }
 
 main().catch((error) => {

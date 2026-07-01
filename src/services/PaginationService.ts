@@ -29,7 +29,7 @@ export class PaginationService {
     while (true) {
       logger.info(`Page ${pageNumber}`);
       const html = updates.map((update) => update.content).join('');
-      const documents = this.documentParser.parse(html);
+      const documents = this.documentParser.parse(html, tableId);
 
       if (documents.length === 0) {
         logger.info('No documents found, stopping pagination.');

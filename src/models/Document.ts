@@ -6,5 +6,6 @@ export interface ScrapedDocument {
   sector: string;
   resolution: string;
   pdfUuid: string;
+  downloadParams: Record<string, string>;
   filename?: string;
 }
