@@ -12,7 +12,7 @@ A TypeScript scraper for JSF (Java Server Faces) applications, without browser a
 - **Core:** TypeScript, Node.js, Axios
 - **Parsing:** Cheerio, fast-xml-parser
 - **HTTP/Session:** axios-cookiejar-support, tough-cookie
-- **Utilities:** fs/promises, path
+- **Utilities:** fs/promises, path, dotenv
 - **Logging:** custom logger, no external dependencies
 
 ## Project structure
@@ -34,16 +34,20 @@ src/
 
 ## Configuration
 
-All configuration is handled through environment variables (with defaults), in `src/config.ts`:
+All configuration is handled through environment variables (with defaults), in `src/config.ts`. Copy `.env.example` to `.env` and adjust as needed — it's loaded automatically on startup, no manual `export` required:
 
-| Variable            | Description                                | Default  |
-| ------------------- | ------------------------------------------- | -------- |
-| `BASE_URL`          | Base URL of the target JSF site             | `''`     |
-| `PAGE_SIZE`         | Number of rows per page                     | `10`     |
-| `DOWNLOAD_DELAY_MS` | Delay between PDF downloads                 | `1000`   |
-| `MAX_RETRIES`       | Maximum retries for transient failures      | `5`      |
-| `MAX_PAGES`         | Page limit to traverse (`0` = no limit)     | `0`      |
-| `OUTPUT_FOLDER`     | Output folder for metadata and PDFs         | `output` |
+```bash
+cp .env.example .env
+```
+
+| Variable            | Description                                          | Default                                                          |
+| ------------------- | ----------------------------------------------------- | ----------------------------------------------------------------- |
+| `BASE_URL`          | Base URL of the target JSF site                       | `https://publico.oefa.gob.pe/repdig/consulta/consultaTfa.xhtml` |
+| `PAGE_SIZE`         | Number of rows requested per page                     | `10`                                                             |
+| `DOWNLOAD_DELAY_MS` | Delay between PDF downloads                           | `1000`                                                           |
+| `MAX_RETRIES`       | Maximum retries for transient failures (e.g. HTTP 429)| `5`                                                               |
+| `MAX_PAGES`         | Page limit to traverse (`0` = no limit)               | `0`                                                               |
+| `OUTPUT_FOLDER`     | Output folder for metadata and PDFs                   | `output`                                                         |
 
 ## Usage
 
@@ -66,12 +70,20 @@ npm run build
 npm start
 ```
 
+To do a quick smoke test against only the first page of results, set `MAX_PAGES=1` (either in `.env` or inline):
+
+```bash
+MAX_PAGES=1 npm run dev
+```
+
 ## Output
 
-- `output/documents.json`: metadata of the extracted documents.
-- `output/pdfs/`: downloaded PDFs.
-- `output/failed-downloads.json`: downloads that exhausted all retries.
+- `output/documents.json`: metadata of every extracted document (case number, company, facility, sector, resolution, PDF UUID, page number and saved PDF path).
+- `output/pdfs/page-N/`: downloaded PDFs, grouped in one folder per result page.
+- `output/failed-downloads.json`: downloads that exhausted all retries, if any.
+
+Metadata is saved incrementally after each page, so partial progress is preserved even if the process is interrupted.
 
 ## Project status
 
-Under incremental, phase-by-phase development (see Pull Request history). Each phase adds a functional layer: HTTP client, session, JSF parsers, pagination, PDF download, retry policy, and persistence.
+Feature-complete: session/cookie handling, JSF ViewState + AJAX partial-response protocol, search, offset-based pagination, PDF download with retry/backoff, and JSON/PDF persistence. Built and verified incrementally through Pull Requests, and validated end-to-end against the live target site.
