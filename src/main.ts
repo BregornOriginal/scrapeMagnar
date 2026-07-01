@@ -22,12 +22,17 @@ async function main(): Promise<void> {
   const allDocuments: ScrapedDocument[] = [];
   const allFailed: FailedDownload[] = [];
 
+  // Each row's download link references its position in the table's
+  // *currently rendered* page (e.g. "dt:3:j_idt63"), so PDFs for a page must
+  // be downloaded right after that page is fetched, before navigating away.
+  // Downloading them later (once a different page is "current" server-side)
+  // makes the server reject those stale row references.
   for await (const pageDocuments of paginationService.fetchAllPages()) {
     const baseFormFields = captureFormFields(searchService.getInitialHtml());
     const { succeeded, failed } = await pdfDownloadService.downloadAll(pageDocuments, baseFormFields);
 
     for (const { document, buffer } of succeeded) {
-      document.filename = await pdfStorage.save(document, buffer);
+      document.filename = await pdfStorage.save(document, buffer, document.pageNumber);
     }
 
     allDocuments.push(...pageDocuments);

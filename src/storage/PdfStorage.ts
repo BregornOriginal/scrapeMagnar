@@ -7,22 +7,25 @@ import { logger } from '../logger/Logger';
 export class PdfStorage {
   private readonly usedFilenames = new Set<string>();
 
-  async save(document: ScrapedDocument, buffer: Buffer): Promise<string> {
-    const pdfDir = path.join(config.outputFolder, 'pdfs');
-    await mkdir(pdfDir, { recursive: true });
+  async save(document: ScrapedDocument, buffer: Buffer, pageNumber: number): Promise<string> {
+    const pageFolder = `page-${pageNumber}`;
+    const pageDir = path.join(config.outputFolder, 'pdfs', pageFolder);
+    await mkdir(pageDir, { recursive: true });
 
-    const filename = await this.resolveFilename(document, pdfDir);
-    await writeFile(path.join(pdfDir, filename), buffer);
-    this.usedFilenames.add(filename);
-    logger.info(`Saved ${filename}`);
-    return filename;
+    const filename = await this.resolveFilename(document, pageDir, pageFolder);
+    await writeFile(path.join(pageDir, filename), buffer);
+    this.usedFilenames.add(`${pageFolder}/${filename}`);
+
+    const relativePath = path.join(pageFolder, filename);
+    logger.info(`Saved ${relativePath}`);
+    return relativePath;
   }
 
-  private async resolveFilename(document: ScrapedDocument, pdfDir: string): Promise<string> {
+  private async resolveFilename(document: ScrapedDocument, pageDir: string, pageFolder: string): Promise<string> {
     const baseName = this.sanitize(document.caseNumber);
     const candidate = `${baseName}.pdf`;
 
-    if (!this.usedFilenames.has(candidate) && !(await this.exists(path.join(pdfDir, candidate)))) {
+    if (!this.usedFilenames.has(`${pageFolder}/${candidate}`) && !(await this.exists(path.join(pageDir, candidate)))) {
       return candidate;
     }
 

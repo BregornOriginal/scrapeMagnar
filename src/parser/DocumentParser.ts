@@ -6,11 +6,25 @@ const DOWNLOAD_PARAMS_PATTERN = /'([^']+)':'([^']*)'/g;
 const EXPECTED_COLUMN_COUNT = 6;
 
 export class DocumentParser {
-  parse(html: string, tableId: string): ScrapedDocument[] {
-    const $ = cheerio.load(html);
+  parse(html: string, tableId: string, pageNumber: number): ScrapedDocument[] {
+    // Full-page renders (e.g. the initial search) wrap the datatable in an
+    // element with this id, so the selector must be scoped to avoid matching
+    // unrelated rows elsewhere on the page (e.g. the search filter form).
+    let $ = cheerio.load(html);
+    let rows = $(`[id="${tableId}"] tbody tr`);
+
+    if (rows.length === 0) {
+      // Pagination responses only return the table's own row markup, with no
+      // wrapping element to scope against. Per the HTML parsing spec, bare
+      // <tr> elements outside a <table> are dropped, so they must be wrapped
+      // before cheerio can see them.
+      $ = cheerio.load(`<table><tbody>${html}</tbody></table>`);
+      rows = $('tbody tr');
+    }
+
     const documents: ScrapedDocument[] = [];
 
-    $(`[id="${tableId}"] tbody tr`).each((rowIndex, row) => {
+    rows.each((rowIndex, row) => {
       const cells = $(row).find('td');
       if (cells.length < EXPECTED_COLUMN_COUNT) {
         return;
@@ -26,6 +40,7 @@ export class DocumentParser {
 
       documents.push({
         index: rowIndex + 1,
+        pageNumber,
         caseNumber: text(1),
         company: text(2),
         facility: text(3),

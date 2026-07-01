@@ -3,7 +3,7 @@ import { Session } from '../session/Session';
 import { SearchService } from './SearchService';
 import { DocumentParser } from '../parser/DocumentParser';
 import { PartialResponseParser, PartialUpdate } from '../jsf/PartialResponseParser';
-import { findIdentifierByClass, extractViewStateFromUpdates } from '../jsf/JsfForm';
+import { findIdentifierByClass, extractViewStateFromUpdates, captureFormFields } from '../jsf/JsfForm';
 import { ScrapedDocument } from '../models/Document';
 import { config } from '../config';
 import { logger } from '../logger/Logger';
@@ -29,7 +29,7 @@ export class PaginationService {
     while (true) {
       logger.info(`Page ${pageNumber}`);
       const html = updates.map((update) => update.content).join('');
-      const documents = this.documentParser.parse(html, tableId);
+      const documents = this.documentParser.parse(html, tableId, pageNumber);
 
       if (documents.length === 0) {
         logger.info('No documents found, stopping pagination.');
@@ -46,20 +46,26 @@ export class PaginationService {
 
       offset += config.pageSize;
       pageNumber += 1;
-      updates = await this.fetchPage(tableId, offset);
+      updates = await this.fetchPage(initialHtml, tableId, offset, pageNumber);
     }
   }
 
-  private async fetchPage(tableId: string, offset: number): Promise<PartialUpdate[]> {
-    const formData = new URLSearchParams();
+  private async fetchPage(
+    initialHtml: string,
+    tableId: string,
+    offset: number,
+    pageNumber: number,
+  ): Promise<PartialUpdate[]> {
+    const formData = captureFormFields(initialHtml);
     formData.set('javax.faces.partial.ajax', 'true');
     formData.set('javax.faces.source', tableId);
-    formData.set('javax.faces.partial.execute', '@all');
-    formData.set('javax.faces.partial.render', '@all');
-    formData.set('javax.faces.behavior.event', 'page');
+    formData.set('javax.faces.partial.execute', tableId);
+    formData.set('javax.faces.partial.render', tableId);
     formData.set(`${tableId}_pagination`, 'true');
     formData.set(`${tableId}_first`, String(offset));
     formData.set(`${tableId}_rows`, String(config.pageSize));
+    formData.set(`${tableId}_skipChildren`, 'true');
+    formData.set(`${tableId}_encodeFeature`, 'true');
     formData.set('javax.faces.ViewState', this.session.getViewState());
 
     const response = await this.http.post<string>('', formData, {
@@ -75,7 +81,7 @@ export class PaginationService {
     if (updatedViewState) {
       this.session.setViewState(updatedViewState);
     } else {
-      logger.warn(`Page ${offset / config.pageSize + 2}: response did not include an updated ViewState.`);
+      logger.warn(`Page ${pageNumber}: response did not include an updated ViewState.`);
     }
 
     return updates;

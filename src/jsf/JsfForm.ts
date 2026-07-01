@@ -56,9 +56,19 @@ export function findIdentifierByClass(html: string, className: string): string {
 
 export function extractViewStateFromUpdates(updates: PartialUpdate[]): string | null {
   for (const update of updates) {
+    // Most updates carry the ViewState wrapped in a hidden <input>, but a
+    // dedicated update whose id names the ViewState component may instead
+    // contain just the bare token with no HTML around it.
     const viewState = viewStateParser.tryExtract(update.content);
     if (viewState) {
       return viewState;
+    }
+
+    if (update.id.includes('ViewState')) {
+      const rawToken = update.content.trim();
+      if (rawToken) {
+        return rawToken;
+      }
     }
   }
   return null;

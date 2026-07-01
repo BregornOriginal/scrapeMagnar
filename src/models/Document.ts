@@ -1,5 +1,6 @@
 export interface ScrapedDocument {
   index: number;
+  pageNumber: number;
   caseNumber: string;
   company: string;
   facility: string;
